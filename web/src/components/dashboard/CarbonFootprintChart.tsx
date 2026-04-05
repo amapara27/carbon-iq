@@ -6,7 +6,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  ReferenceLine,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
@@ -41,7 +40,8 @@ export default function CarbonFootprintChart({
   }));
 
   // Calculate current month's gap
-  const latestData = dataWithGap[dataWithGap.length - 1];
+  const latestData =
+    dataWithGap[dataWithGap.length - 1] ?? { co2: 0, offset: 0 };
   const currentGap = latestData.co2 - latestData.offset;
   const isNeutral = currentGap <= 0;
   return (

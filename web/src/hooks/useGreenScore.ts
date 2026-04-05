@@ -4,7 +4,7 @@ interface GreenScoreData {
   score: number;
   breakdown: {
     transactionEfficiency: number;
-    stakingHistory: number;
+    spendingHabits: number;
     carbonOffsets: number;
     communityImpact: number;
   };
@@ -38,7 +38,7 @@ export function useGreenScore(walletAddress: string | null) {
         score: 72,
         breakdown: {
           transactionEfficiency: 85,
-          stakingHistory: 60,
+          spendingHabits: 60,
           carbonOffsets: 78,
           communityImpact: 65,
         },

@@ -14,6 +14,9 @@ import {
   AnalyzeTransactionsRequestSchema,
   AnalyzedTransactionSchema,
   AnalyzeTransactionsResponseSchema,
+  DemoTransactionInputSchema,
+  DemoConnectBankRequestSchema,
+  DemoConnectBankResponseSchema,
 
   // Green Score
   GreenScoreRequestSchema,
@@ -61,6 +64,9 @@ export type WalletAddress = z.infer<typeof WalletAddressSchema>;
 export type AnalyzeTransactionsRequest = z.infer<typeof AnalyzeTransactionsRequestSchema>;
 export type AnalyzedTransaction = z.infer<typeof AnalyzedTransactionSchema>;
 export type AnalyzeTransactionsResponse = z.infer<typeof AnalyzeTransactionsResponseSchema>;
+export type DemoTransactionInput = z.infer<typeof DemoTransactionInputSchema>;
+export type DemoConnectBankRequest = z.infer<typeof DemoConnectBankRequestSchema>;
+export type DemoConnectBankResponse = z.infer<typeof DemoConnectBankResponseSchema>;
 
 // ─── Green Score ────────────────────────────────────────────────────────────
 

@@ -7,6 +7,7 @@ import {
   type RawTransaction,
 } from "../lib/aiRules.js";
 import { roundTo } from "../lib/aiMath.js";
+import { demoBankLedgerService } from "./demoBankLedgerService.js";
 
 function toIsoSeconds(date: Date): string {
   return date.toISOString().replace(/\.\d{3}Z$/, "Z");
@@ -47,6 +48,11 @@ function getSeededTransactions(wallet: string): RawTransaction[] {
 
 export const transactionProvider = {
   getTransactions(wallet: string, _plaidAccessToken?: string): RawTransaction[] {
+    const connectedLedger = demoBankLedgerService.getWalletLedger(wallet);
+    if (connectedLedger) {
+      return connectedLedger;
+    }
+
     return getSeededTransactions(wallet);
   },
 };

@@ -1,93 +1,139 @@
-# 🌱 CarbonIQ — Sustainability on Solana
+# CarbonIQ
 
-**Track your carbon footprint. Stake green. Earn impact.**
+CarbonIQ is a full-stack sustainability project built around a Solana wallet identity. It ingests transaction history (uploaded or demo), estimates CO2e emissions per transaction, computes a Green Score, and uses that score to shape staking outcomes. The platform also exposes an offset flow that records proof-of-impact on Solana devnet through an Anchor program. Wallet state, recommendations, stake snapshots, and leaderboard data are persisted in MongoDB and restored on reload.
 
-CarbonIQ is a Solana-based sustainability platform that analyzes on-chain transactions for environmental impact, rewards eco-conscious behavior with boosted staking yields, and records verifiable proofs of carbon offsets on-chain.
+## What It Currently Does
 
----
+- Wallet-based app with pages for Dashboard, Staking, Swaps, and Leaderboard.
+- Upload or preset-connect transactions through `/api/demo/connect-bank`.
+- Analyze transaction emissions via category rules and optional Climatiq spend-based estimates.
+- Compute/persist Green Score with component breakdown and behavior penalties.
+- Generate swap suggestions (template or OpenAI-backed recommender) and persist adoption actions.
+- Simulate stake outcomes, execute stake flows (Marinade, wallet-signed, or demo transfer fallback), collect yield, and withdraw principal.
+- Trigger and record offset actions, including Solana proof PDA updates and stored impact history.
+- Serve leaderboard rankings and Metaplex-compatible impact NFT metadata.
+
+Note: the offset flow is API-complete, but there is no dedicated offset page in the current web UI.
 
 ## Architecture
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌──────────────────┐
 │   /web      │────▶│   /api      │────▶│   /anchor        │
-│   React +   │     │   Express + │     │   Solana Program │
-│   Vite      │     │   Prisma    │     │   (Rust)         │
+│ React +     │     │ Express +   │     │ Solana Program   │
+│ Vite        │     │ TypeScript  │     │ (Rust/Anchor)    │
 └─────────────┘     └─────────────┘     └──────────────────┘
 ```
 
-## Quick Start
+## Repo Layout
+
+- `web/` React 19 + Vite frontend (wallet connect, dashboard, staking, swaps, leaderboard).
+- `api/` Express TypeScript backend with route validation from `@carboniq/contracts`.
+- `contracts/` Shared Zod schemas/types/constants used by both web and API.
+- `anchor/` Solana program (`record_impact`, `update_impact`) and Anchor tests.
+- `demo/` Synthetic transaction datasets used by demo upload/preset flows.
+
+## Local Development
+
+### Prerequisites
+
+- Node.js 20+ and npm.
+- A MongoDB connection string (`MONGODB_URI` or `DATABASE_URL`) for persisted state.
+- Optional for on-chain actions: Solana devnet RPC + payer/vault keys.
+- Optional for Anchor program work: Rust + Solana CLI + Anchor CLI.
+
+### 1) Build shared contracts
 
 ```bash
-# 1. Install shared + backend dependencies
-cd contracts && npm install && npm run build
-cd ../api && npm install
-
-# 2. Configure and start the unified backend API
-cd api && cp .env.example .env && npm run dev
-
-# 3. Start the frontend (in another terminal, optional for backend work)
-cd web && npm run dev
-
-# 4. Verify the Anchor program compiles
-cd anchor && cargo test -p carbon-iq --lib
+cd contracts
+npm install
+npm run build
 ```
 
-## Backend Workflow
+### 2) Configure and run API
 
 ```bash
-# Build shared contracts first
+cd ../api
+npm install
+cp .env.example .env
+# edit .env (at minimum set MONGODB_URI or DATABASE_URL)
+npm run dev
+```
+
+API runs on `http://localhost:4000`.
+
+### 3) Run frontend
+
+```bash
+cd ../web
+npm install
+npm run dev
+```
+
+Web runs on `http://localhost:3000` and proxies `/api/*` to `http://localhost:4000`.
+
+## Key Environment Variables (`api/.env`)
+
+### Required for persisted app behavior
+
+- `MONGODB_URI` (recommended) or `DATABASE_URL` (fallback).
+- `FRONTEND_URL` for CORS (`.env.example` uses `http://localhost:5173`; API runtime fallback is `http://localhost:3000` if unset).
+
+### Required for Solana on-chain stake/offset execution
+
+- `SOLANA_RPC_URL`
+- `SOLANA_PROGRAM_ID`
+- `SOLANA_PAYER_SECRET_KEY`
+- `SOLANA_STAKING_VAULT_ADDRESS`
+
+### Optional stake behavior flags
+
+- `SOLANA_STAKING_PROVIDER=marinade|demo|jito` (jito path is currently not implemented and will error or fallback).
+- `SOLANA_STAKING_FALLBACK_TO_DEMO=true|false`
+- `SOLANA_STAKING_VAULT_SECRET_KEY`
+- `MARINADE_HARDCODED_APY`
+- `STAKING_PROTOCOL_APY_WINDOW_DAYS`
+
+### Optional AI/estimation providers
+
+- OpenAI recommender: `OPENAI_API_KEY` + `CARBONIQ_USE_OPENAI_RECOMMENDER=true`
+- Climatiq emissions: `CLIMATIQ_API_KEY` + `CARBONIQ_USE_CLIMATIQ_EMISSIONS=true`
+
+## API Surface (Current)
+
+- `GET /api/health`
+- `POST /api/demo/connect-bank`
+- `POST /api/analyze-transactions`
+- `GET /api/green-score`
+- `GET /api/wallet-state`
+- `GET /api/swap-suggestions`
+- `POST /api/recommendation-actions`
+- `POST /api/trigger-offset`
+- `POST /api/record-offset`
+- `GET /api/staking-info`
+- `POST /api/simulate-stake`
+- `POST /api/simulate-stake-timeline`
+- `POST /api/stake`
+- `POST /api/stake/collect`
+- `POST /api/stake/withdraw`
+- `GET /api/leaderboard`
+- `GET /api/nft-metadata`
+
+## Useful Validation Commands
+
+```bash
+# Shared types/schemas
 cd contracts && npm run build
 
-# Build and test the unified API
+# API compile + tests
 cd ../api && npm run build && npm test
 
-# Validate Prisma schema
-cd ../api && DATABASE_URL='file:./dev.db' npx prisma validate
+# Frontend compile
+cd ../web && npm run build
 
-# Compile the Anchor program
+# Anchor compile tests
 cd ../anchor && cargo test -p carbon-iq --lib
 ```
-
-The Express API now serves both the deterministic AI endpoints
-(`/api/analyze-transactions`, `/api/green-score`, `/api/swap-suggestions`,
-`/api/trigger-offset`) and the blockchain endpoints
-(`/api/record-offset`, `/api/staking-info`, `/api/simulate-stake`,
-`/api/stake`, `/api/leaderboard`, `/api/nft-metadata`).
-
-The Solana/Anchor side is configured for devnet in `anchor/Anchor.toml`, and
-the API expects the server-authority signing model via `SOLANA_PROGRAM_ID`,
-`SOLANA_RPC_URL`, `SOLANA_PAYER_SECRET_KEY`, and
-`SOLANA_STAKING_VAULT_ADDRESS` in `api/.env`.
-
-Staking execution can now be selected with:
-- `SOLANA_STAKING_PROVIDER=marinade|demo|jito` (default: `marinade`)
-- `SOLANA_STAKING_FALLBACK_TO_DEMO=true|false` (default: `true`)
-- `MARINADE_HARDCODED_APY=<number>` (default: `6.1`)
-- `STAKING_PROTOCOL_APY_WINDOW_DAYS=<days>` (default: `14`)
-
-When `marinade` is selected, `/api/stake` uses Marinade protocol deposit and
-stores the resulting destination token account address in the existing
-`vaultAddress` response field for backward compatibility.
-
-`GET /api/staking-info` and `POST /api/simulate-stake` now use a protocol-first
-base APY model:
-- first preference: rolling APY derived from Marinade `mSOL` on-chain price snapshots
-- fallback: `MARINADE_HARDCODED_APY`
-
-Optional AI swap-suggestion
-narration can be enabled with `CARBONIQ_USE_OPENAI_NARRATOR` plus the
-`OPENAI_*` variables in `api/.env`.
-
-## Tech Stack
-
-| Layer      | Technology                                         |
-|------------|----------------------------------------------------|
-| Frontend   | React 19, Vite, TypeScript, Tailwind CSS, Recharts |
-| Auth       | Clerk + Solana Wallet Adapter                      |
-| Blockchain | Solana (Anchor 0.30, Rust)                         |
-| Backend    | Express.js, Prisma ORM, Zod                        |
-| Database   | SQLite (dev) → PostgreSQL (prod)                   |
 
 ## License
 

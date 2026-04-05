@@ -1,0 +1,44 @@
+// Prisma Schema for CarbonIQ
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  walletAddress String   @unique
+  greenScore    Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  transactions TransactionAnalysis[]
+  impacts      ImpactRecord[]
+}
+
+model TransactionAnalysis {
+  id               String   @id @default(cuid())
+  signature        String   @unique
+  userId           String
+  computeUnits     Int
+  estimatedCO2     Float
+  transactionType  String
+  analyzedAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model ImpactRecord {
+  id              String   @id @default(cuid())
+  userId          String
+  co2OffsetGrams  Int
+  onChainTxHash   String?
+  recordedAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}

@@ -116,5 +116,82 @@ export async function ensureDatabaseSchema(): Promise<void> {
     ON "ProtocolRateSnapshot"("provider", "metric", "capturedAt")
   `);
 
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "UserBehaviorState" (
+      "userId" TEXT NOT NULL PRIMARY KEY,
+      "irresponsibleStreak" INTEGER NOT NULL DEFAULT 0,
+      "lastPenaltyPoints" INTEGER NOT NULL DEFAULT 0,
+      "lastIrresponsibleShare" REAL NOT NULL DEFAULT 0,
+      "lastSnapshotFingerprint" TEXT,
+      "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )
+  `);
+  const existingBehaviorColumns = new Set(
+    (
+      (await prisma.$queryRawUnsafe(
+        `PRAGMA table_info("UserBehaviorState")`
+      )) as SqliteColumnInfo[]
+    ).map((column) => column.name)
+  );
+  if (!existingBehaviorColumns.has("lastPenaltyPoints")) {
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE "UserBehaviorState" ADD COLUMN "lastPenaltyPoints" INTEGER NOT NULL DEFAULT 0`
+    );
+  }
+  if (!existingBehaviorColumns.has("lastIrresponsibleShare")) {
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE "UserBehaviorState" ADD COLUMN "lastIrresponsibleShare" REAL NOT NULL DEFAULT 0`
+    );
+  }
+  if (!existingBehaviorColumns.has("lastSnapshotFingerprint")) {
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE "UserBehaviorState" ADD COLUMN "lastSnapshotFingerprint" TEXT`
+    );
+  }
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "YieldRedistributionEvent" (
+      "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+      "offenderUserId" TEXT NOT NULL,
+      "triggeredScore" INTEGER NOT NULL,
+      "resetAmount" REAL NOT NULL,
+      "redistributedToUsers" REAL NOT NULL,
+      "redistributedToNonprofits" REAL NOT NULL,
+      "reason" TEXT NOT NULL,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY ("offenderUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE INDEX IF NOT EXISTS "YieldRedistributionEvent_offenderUserId_createdAt_idx"
+    ON "YieldRedistributionEvent"("offenderUserId", "createdAt")
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "YieldRedistributionCredit" (
+      "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+      "eventId" INTEGER NOT NULL,
+      "userId" TEXT NOT NULL,
+      "amount" REAL NOT NULL,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY ("eventId") REFERENCES "YieldRedistributionEvent"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+      FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE INDEX IF NOT EXISTS "YieldRedistributionCredit_userId_createdAt_idx"
+    ON "YieldRedistributionCredit"("userId", "createdAt")
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "SustainabilityFundLedger" (
+      "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+      "eventId" INTEGER NOT NULL,
+      "amount" REAL NOT NULL,
+      "recipient" TEXT NOT NULL DEFAULT 'verified_nonprofit_pool',
+      "note" TEXT,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY ("eventId") REFERENCES "YieldRedistributionEvent"("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )
+  `);
+
   ensured = true;
 }

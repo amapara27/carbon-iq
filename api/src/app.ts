@@ -2,6 +2,7 @@ import cors from "cors";
 import express from "express";
 
 import { analyzeTransactionsRouter } from "./routes/analyzeTransactions.js";
+import { demoConnectBankRouter } from "./routes/demoConnectBank.js";
 import { greenScoreRouter } from "./routes/greenScore.js";
 import { leaderboardRouter } from "./routes/leaderboard.js";
 import { nftMetadataRouter } from "./routes/nftMetadata.js";
@@ -25,6 +26,7 @@ export function createApp() {
   });
 
   app.use("/api/analyze-transactions", analyzeTransactionsRouter);
+  app.use("/api/demo/connect-bank", demoConnectBankRouter);
   app.use("/api/green-score", greenScoreRouter);
   app.use("/api/swap-suggestions", swapSuggestionsRouter);
   app.use("/api/trigger-offset", triggerOffsetRouter);

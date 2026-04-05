@@ -17,6 +17,7 @@ process.env.DATABASE_URL = `file:${path.resolve(process.cwd(), "prisma/test.db")
 type PrismaModule = typeof import("../src/lib/prisma.js");
 type EnsureDatabaseModule = typeof import("../src/lib/ensureDatabase.js");
 type AnalyzeTransactionsRouteModule = typeof import("../src/routes/analyzeTransactions.js");
+type DemoConnectBankRouteModule = typeof import("../src/routes/demoConnectBank.js");
 type GreenScoreRouteModule = typeof import("../src/routes/greenScore.js");
 type SwapSuggestionsRouteModule = typeof import("../src/routes/swapSuggestions.js");
 type TriggerOffsetRouteModule = typeof import("../src/routes/triggerOffset.js");
@@ -31,6 +32,7 @@ type GreenScoreServiceModule = typeof import("../src/services/greenScoreService.
 let prismaModule: PrismaModule;
 let ensureDatabaseModule: EnsureDatabaseModule;
 let analyzeTransactionsRouteModule: AnalyzeTransactionsRouteModule;
+let demoConnectBankRouteModule: DemoConnectBankRouteModule;
 let greenScoreRouteModule: GreenScoreRouteModule;
 let swapSuggestionsRouteModule: SwapSuggestionsRouteModule;
 let triggerOffsetRouteModule: TriggerOffsetRouteModule;
@@ -126,6 +128,7 @@ before(async () => {
   analyzeTransactionsRouteModule = await import(
     "../src/routes/analyzeTransactions.js"
   );
+  demoConnectBankRouteModule = await import("../src/routes/demoConnectBank.js");
   greenScoreRouteModule = await import("../src/routes/greenScore.js");
   swapSuggestionsRouteModule = await import("../src/routes/swapSuggestions.js");
   triggerOffsetRouteModule = await import("../src/routes/triggerOffset.js");
@@ -187,6 +190,89 @@ describe("unified backend routes", () => {
           .toFixed(2)
       ),
       first.body.totalCo2eGrams
+    );
+  });
+
+  it("POST /api/demo/connect-bank binds preset transactions to the wallet", async () => {
+    const wallet = "G".repeat(32);
+
+    const connect = await requestJson(demoConnectBankRouteModule.demoConnectBankRouter, {
+      method: "POST",
+      path: "/",
+      body: {
+        wallet,
+        mode: "preset",
+        scenario: "sustainable",
+      },
+    });
+
+    assert.equal(connect.status, 200);
+    assert.equal(connect.body.wallet, wallet);
+    assert.equal(connect.body.mode, "preset");
+    assert.equal(connect.body.sourceLabel, "preset:sustainable");
+    assert.ok(connect.body.transactionCount >= 1);
+
+    const analysis = await requestJson(
+      analyzeTransactionsRouteModule.analyzeTransactionsRouter,
+      {
+        method: "POST",
+        path: "/",
+        body: { wallet, limit: 5 },
+      }
+    );
+
+    assert.equal(analysis.status, 200);
+    assert.equal(analysis.body.transactionCount, 5);
+    assert.match(analysis.body.transactions[0].transactionId, /^sus_/);
+  });
+
+  it("POST /api/demo/connect-bank accepts uploaded transactions for analysis", async () => {
+    const wallet = "H".repeat(32);
+
+    const connect = await requestJson(demoConnectBankRouteModule.demoConnectBankRouter, {
+      method: "POST",
+      path: "/",
+      body: {
+        wallet,
+        mode: "upload",
+        transactions: [
+          {
+            transactionId: "upload_001",
+            description: "Electric bike commute pass",
+            amountUsd: 34.5,
+            mccCode: "4111",
+            date: "2026-03-01T10:00:00Z",
+          },
+          {
+            transactionId: "upload_002",
+            description: "Local farmers market groceries",
+            amountUsd: 56.25,
+            mccCode: "5411",
+            date: "2026-03-02T10:00:00Z",
+          },
+        ],
+      },
+    });
+
+    assert.equal(connect.status, 200);
+    assert.equal(connect.body.mode, "upload");
+    assert.equal(connect.body.transactionCount, 2);
+
+    const analysis = await requestJson(
+      analyzeTransactionsRouteModule.analyzeTransactionsRouter,
+      {
+        method: "POST",
+        path: "/",
+        body: { wallet, limit: 20 },
+      }
+    );
+
+    assert.equal(analysis.status, 200);
+    assert.equal(analysis.body.transactionCount, 2);
+    assert.equal(analysis.body.transactions[0].transactionId, "upload_001");
+    assert.equal(
+      analysis.body.transactions[1].description,
+      "Local farmers market groceries"
     );
   });
 
@@ -529,6 +615,62 @@ describe("unified backend routes", () => {
     assert.equal(user.stakes.length, 1);
     assert.equal(user.stakes[0]?.solanaTxHash, "marinade-sig-abc");
     assert.equal(user.stakes[0]?.status, "confirmed");
+  });
+
+  it("POST /api/stake accepts wallet-signed staking signatures", async () => {
+    const wallet = randomWallet();
+    const vaultAddress = Keypair.generate().publicKey;
+    let transferCalls = 0;
+
+    const router = stakeRouteModule.createStakeRouter({
+      getApiPayer: () => Keypair.generate(),
+      getSolanaConnection: () => ({}) as never,
+      confirmSolanaSignature: async () => {},
+      refreshStoredGreenScore: async () => ({
+        wallet,
+        score: 68,
+        tier: "tree",
+        breakdown: {
+          transactionEfficiency: 66,
+          spendingHabits: 64,
+          carbonOffsets: 70,
+          communityImpact: 72,
+        },
+      }),
+      getVaultAddress: () => vaultAddress,
+      sendStakeTransfer: async () => {
+        transferCalls += 1;
+        return "should-not-be-used";
+      },
+      verifyWalletStakeSignature: async ({ signature }) => {
+        assert.equal(signature, "user-wallet-sig-999");
+        return vaultAddress.toBase58();
+      },
+    });
+
+    const response = await requestJson(router, {
+      method: "POST",
+      path: "/",
+      body: {
+        wallet,
+        amount: 2.4,
+        durationDays: 30,
+        solanaSignature: "user-wallet-sig-999",
+      },
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(response.body.solanaSignature, "user-wallet-sig-999");
+    assert.equal(response.body.vaultAddress, vaultAddress.toBase58());
+    assert.equal(transferCalls, 0);
+
+    const user = await prismaModule.prisma.user.findUniqueOrThrow({
+      where: { walletAddress: wallet },
+      include: { stakes: true },
+    });
+    assert.equal(user.stakes.length, 1);
+    assert.equal(user.stakes[0]?.solanaTxHash, "user-wallet-sig-999");
+    assert.equal(user.stakes[0]?.vaultAddress, vaultAddress.toBase58());
   });
 
   it("GET /api/staking-info creates a new user and aggregates only executed stake data", async () => {

@@ -133,6 +133,14 @@ class EmissionsService {
   getCanonicalSnapshot(wallet: string): AnalysisSnapshot {
     return this.buildSnapshot(wallet, DEFAULT_TRANSACTION_LIMIT);
   }
+
+  clearWalletCache(wallet: string): void {
+    for (const cacheKey of this.analysisCache.keys()) {
+      if (cacheKey.startsWith(`${wallet}:`)) {
+        this.analysisCache.delete(cacheKey);
+      }
+    }
+  }
 }
 
 export const emissionsService = new EmissionsService();

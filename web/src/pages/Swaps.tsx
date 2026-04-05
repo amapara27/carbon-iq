@@ -1,116 +1,132 @@
+import { useState } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { ArrowLeftRight, Leaf, ShieldCheck } from "lucide-react";
+import { Leaf, RefreshCw } from "lucide-react";
 
-const tokens = [
-  { symbol: "SOL", name: "Solana", greenRating: 92 },
-  { symbol: "USDC", name: "USD Coin", greenRating: 85 },
-  { symbol: "RAY", name: "Raydium", greenRating: 78 },
-  { symbol: "BONK", name: "Bonk", greenRating: 45 },
-];
+interface SwapSuggestionsResponse {
+  wallet: string;
+  totalPotentialSavingsMonthly: number;
+  suggestions: Array<{
+    currentCategory: string;
+    currentDescription: string;
+    currentCo2eMonthly: number;
+    alternativeDescription: string;
+    alternativeCo2eMonthly: number;
+    co2eSavingsMonthly: number;
+    priceDifferenceUsd: number;
+    difficulty: "easy" | "moderate" | "hard";
+  }>;
+}
+
+function formatError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return "Unexpected error.";
+}
 
 export default function Swaps() {
+  const { publicKey } = useWallet();
+  const wallet = publicKey?.toBase58() ?? null;
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [result, setResult] = useState<SwapSuggestionsResponse | null>(null);
+  const [adopted, setAdopted] = useState<Record<number, boolean>>({});
+
+  async function loadSuggestions() {
+    if (!wallet) {
+      setError("Connect your wallet first.");
+      return;
+    }
+
+    setIsLoading(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/swap-suggestions?wallet=${wallet}`);
+      if (!response.ok) {
+        throw new Error(`Request failed (${response.status})`);
+      }
+      const json = (await response.json()) as SwapSuggestionsResponse;
+      setResult(json);
+      setAdopted({});
+    } catch (loadError) {
+      setError(formatError(loadError));
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">Green Swaps</h1>
+        <h1 className="text-3xl font-bold">Product Swaps</h1>
         <p className="text-gray-400 mt-1">
-          Swap tokens with environmental impact ratings
+          AI suggests lower-emission alternatives you can adopt.
         </p>
       </div>
 
-      {/* Swap Interface */}
-      <Card className="max-w-lg mx-auto">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <ArrowLeftRight className="h-5 w-5 text-accent-cyan" />
-            Swap Tokens
+            <Leaf className="h-5 w-5 text-forest-400" />
+            Swap Suggestions
           </CardTitle>
           <CardDescription>
-            We prioritize low-emission liquidity pools
+            This is product recommendation mode, not token DEX execution.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* From */}
-          <div className="glass p-4 space-y-2">
-            <label className="text-xs text-gray-500 uppercase tracking-wider">
-              From
-            </label>
-            <div className="flex items-center gap-3">
-              <input
-                type="number"
-                placeholder="0.00"
-                className="flex-1 bg-transparent text-2xl font-semibold outline-none placeholder:text-gray-600"
-              />
-              <Button variant="outline" size="sm">
-                SOL
-              </Button>
-            </div>
-          </div>
-
-          <div className="flex justify-center">
-            <button className="p-2 rounded-full bg-surface-200 border border-surface-300 hover:border-accent-cyan/50 transition-colors">
-              <ArrowLeftRight className="h-4 w-4 text-accent-cyan" />
-            </button>
-          </div>
-
-          {/* To */}
-          <div className="glass p-4 space-y-2">
-            <label className="text-xs text-gray-500 uppercase tracking-wider">
-              To
-            </label>
-            <div className="flex items-center gap-3">
-              <input
-                type="number"
-                placeholder="0.00"
-                className="flex-1 bg-transparent text-2xl font-semibold outline-none placeholder:text-gray-600"
-              />
-              <Button variant="outline" size="sm">
-                USDC
-              </Button>
-            </div>
-          </div>
-
-          <Button className="w-full" size="lg">
-            <ShieldCheck className="h-4 w-4" />
-            Swap (Coming Soon)
+          <Button onClick={loadSuggestions} disabled={isLoading}>
+            <RefreshCw className="h-4 w-4" />
+            {isLoading ? "Loading..." : "Load Suggestions"}
           </Button>
+          {error && <p className="text-sm text-clay-400">{error}</p>}
+          {result && (
+            <p className="text-sm text-stone-300">
+              Total potential savings:{" "}
+              <span className="text-forest-300">
+                {result.totalPotentialSavingsMonthly.toFixed(2)} g CO₂/month
+              </span>
+            </p>
+          )}
         </CardContent>
       </Card>
 
-      {/* Token Sustainability Ratings */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4">Token Sustainability Ratings</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {tokens.map((token) => (
-            <Card key={token.symbol}>
-              <CardContent className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-surface-200 text-lg font-bold font-mono">
-                  {token.symbol.slice(0, 2)}
-                </div>
-                <div className="flex-1">
-                  <p className="font-semibold">{token.symbol}</p>
-                  <p className="text-xs text-gray-500">{token.name}</p>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Leaf
-                    className={`h-4 w-4 ${
-                      token.greenRating >= 80
-                        ? "text-accent-emerald"
-                        : token.greenRating >= 60
-                          ? "text-yellow-400"
-                          : "text-orange-400"
-                    }`}
-                  />
-                  <span className="text-sm font-mono font-semibold">
-                    {token.greenRating}
-                  </span>
-                </div>
+      {result && (
+        <div className="grid grid-cols-1 gap-4">
+          {result.suggestions.map((suggestion, index) => (
+            <Card key={`${suggestion.currentCategory}-${index}`}>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-stone-400 uppercase">{suggestion.currentCategory}</p>
+                <p className="text-sm text-stone-200">
+                  <span className="text-stone-400">Current:</span> {suggestion.currentDescription}
+                </p>
+                <p className="text-sm text-forest-300">
+                  <span className="text-stone-400">Alternative:</span>{" "}
+                  {suggestion.alternativeDescription}
+                </p>
+                <p className="text-xs text-stone-500">
+                  Saves {suggestion.co2eSavingsMonthly.toFixed(2)} g/month
+                  {suggestion.priceDifferenceUsd <= 0
+                    ? ` and costs $${Math.abs(suggestion.priceDifferenceUsd).toFixed(2)} less`
+                    : ` and costs $${suggestion.priceDifferenceUsd.toFixed(2)} more`}
+                </p>
+                <Button
+                  size="sm"
+                  variant={adopted[index] ? "secondary" : "outline"}
+                  onClick={() =>
+                    setAdopted((prev) => ({ ...prev, [index]: !prev[index] }))
+                  }
+                >
+                  {adopted[index] ? "Adopted" : "Mark Adopted"}
+                </Button>
               </CardContent>
             </Card>
           ))}
         </div>
-      </div>
+      )}
     </div>
   );
 }

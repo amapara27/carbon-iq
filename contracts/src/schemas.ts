@@ -128,6 +128,56 @@ export const AnalyzeTransactionsResponseSchema = z.object({
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
+//  POST /api/demo/connect-bank
+//  Demo ingestion endpoint for preset/upload synthetic transactions
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const DemoTransactionInputSchema = z.object({
+  transactionId: z.string(),
+  description: z.string(),
+  amountUsd: z.number(),
+  mccCode: z.string().optional(),
+  date: z.string(),
+});
+
+export const DemoConnectBankRequestSchema = z
+  .object({
+    wallet: WalletAddressSchema,
+    mode: z.enum(["preset", "upload"]),
+    scenario: z.enum(["sustainable", "mixed", "irresponsible"]).optional(),
+    transactions: z
+      .array(DemoTransactionInputSchema)
+      .min(1)
+      .max(MAX_TRANSACTION_LIMIT)
+      .optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.mode === "preset" && !value.scenario) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "scenario is required when mode is preset",
+        path: ["scenario"],
+      });
+    }
+
+    if (value.mode === "upload" && !value.transactions) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "transactions are required when mode is upload",
+        path: ["transactions"],
+      });
+    }
+  });
+
+export const DemoConnectBankResponseSchema = z.object({
+  wallet: WalletAddressSchema,
+  mode: z.enum(["preset", "upload"]),
+  sourceLabel: z.string(),
+  transactionCount: z.number().int().nonnegative(),
+  connectedAt: z.string(),
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
 //  GET /api/green-score?wallet=<address>
 //  AI Backend computes, Blockchain Backend stores + uses for staking
 // ═══════════════════════════════════════════════════════════════════════════
@@ -287,6 +337,8 @@ export const StakingInfoResponseSchema = z.object({
   stakedAmount: z.number().nonnegative(),
   /** Current yield accrued in SOL. */
   accruedYield: z.number().nonnegative(),
+  /** Vault destination for wallet-signed demo staking transfers. */
+  stakeVaultAddress: WalletAddressSchema.optional(),
 });
 
 export const SimulateStakeRequestSchema = z.object({
@@ -312,6 +364,8 @@ export const StakeRequestSchema = z.object({
   wallet: WalletAddressSchema,
   amount: z.number().positive().max(STAKING_MAX_AMOUNT),
   durationDays: z.number().int().min(1).max(STAKING_MAX_DURATION_DAYS),
+  /** Optional wallet-signed transfer signature from frontend staking flow. */
+  solanaSignature: z.string().optional(),
 });
 
 export const StakeResponseSchema = z.object({

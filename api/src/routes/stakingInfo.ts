@@ -16,11 +16,20 @@ import {
   computeEffectiveApyWithBase,
 } from "../services/stakingService.js";
 import { getProtocolBaseApy } from "../services/stakingRateService.js";
+import { getStakeVaultAddress } from "../services/stakeExecutionService.js";
 import { prisma } from "../lib/prisma.js";
 import { clampGreenScore } from "../lib/blockchain.js";
 import { getZodLikeDetails, isZodLikeError } from "../lib/validation.js";
 
 export const stakingInfoRouter = Router();
+
+function safeStakeVaultAddress(): string | undefined {
+  try {
+    return getStakeVaultAddress().toBase58();
+  } catch {
+    return undefined;
+  }
+}
 
 stakingInfoRouter.get("/", async (req: Request, res: Response) => {
   try {
@@ -63,6 +72,7 @@ stakingInfoRouter.get("/", async (req: Request, res: Response) => {
       accruedYield: parseFloat(
         (stakeAgg._sum.estimatedYield ?? 0).toFixed(6)
       ),
+      stakeVaultAddress: safeStakeVaultAddress(),
     });
 
     res.json(response);

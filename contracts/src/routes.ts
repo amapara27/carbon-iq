@@ -23,6 +23,13 @@ export const API_ROUTES = {
     owner: "ai" as const,
   },
 
+  /** Demo-only bank-link endpoint for preset/upload transaction ingestion. */
+  DEMO_CONNECT_BANK: {
+    path: "/api/demo/connect-bank",
+    method: "POST" as const,
+    owner: "ai" as const,
+  },
+
   /** Green Score: composite sustainability score for a wallet. */
   GREEN_SCORE: {
     path: "/api/green-score",

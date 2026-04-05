@@ -5,13 +5,11 @@ import { TrendingUp, Award } from "lucide-react";
 interface GreenScoreDisplayProps {
   score: number; // 0–100
   label?: string;
-  currentOffset?: number; // Current CO2 offset in kg
 }
 
 export default function GreenScoreDisplay({
   score,
   label = "Green Score",
-  currentOffset = 2450,
 }: GreenScoreDisplayProps) {
   // Tier thresholds
   const tiers = [
@@ -21,7 +19,8 @@ export default function GreenScoreDisplay({
     { name: "Platinum", min: 80, max: 100, color: "text-forest-300", bgColor: "bg-forest-300/10", borderColor: "border-forest-300/30" },
   ];
 
-  const currentTier = tiers.find(t => score >= t.min && score < t.max) || tiers[tiers.length - 1];
+  const currentTier =
+    tiers.find((t) => score >= t.min && score < t.max) ?? tiers[tiers.length - 1]!;
   const nextTier = tiers.find(t => t.min > score);
 
   // Calculate progress to next tier

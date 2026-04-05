@@ -1,5 +1,7 @@
 import {
   LAMPORTS_PER_SOL,
+  ParsedInstruction,
+  PartiallyDecodedInstruction,
   PublicKey,
   SystemProgram,
   Transaction,
@@ -45,6 +47,13 @@ export type StakeExecutionDeps = {
     vaultAddress: PublicKey;
     lamports: number;
   }) => Promise<string>;
+  verifyWalletStakeSignature?: (input: {
+    connection: Connection;
+    signature: string;
+    wallet: string;
+    vaultAddress: PublicKey;
+    lamports: number;
+  }) => Promise<string>;
   executeProtocolStake?: (input: {
     connection: Connection;
     payer: Keypair;
@@ -65,6 +74,10 @@ function getVaultAddressFromEnv(): PublicKey {
       "SOLANA_STAKING_VAULT_ADDRESS must be a valid Solana public key."
     );
   }
+}
+
+export function getStakeVaultAddress(): PublicKey {
+  return getVaultAddressFromEnv();
 }
 
 async function sendStakeTransfer({
@@ -98,6 +111,79 @@ async function sendStakeTransfer({
     skipPreflight: false,
     preflightCommitment: "confirmed",
   });
+}
+
+function isParsedInstruction(
+  instruction: ParsedInstruction | PartiallyDecodedInstruction
+): instruction is ParsedInstruction {
+  return "parsed" in instruction;
+}
+
+async function verifyWalletStakeSignature({
+  connection,
+  signature,
+  wallet,
+  vaultAddress,
+  lamports,
+}: {
+  connection: Connection;
+  signature: string;
+  wallet: string;
+  vaultAddress: PublicKey;
+  lamports: number;
+}): Promise<string> {
+  const transaction = await connection.getParsedTransaction(signature, {
+    commitment: "confirmed",
+    maxSupportedTransactionVersion: 0,
+  });
+
+  if (!transaction) {
+    throw new Error("Unable to load signed staking transaction from Solana RPC.");
+  }
+  if (transaction.meta?.err) {
+    throw new Error("Signed staking transaction failed on-chain.");
+  }
+
+  const expectedSource = wallet;
+  const expectedDestination = vaultAddress.toBase58();
+  let matchedTransfer = false;
+
+  for (const instruction of transaction.transaction.message.instructions) {
+    if (!isParsedInstruction(instruction)) {
+      continue;
+    }
+    if (instruction.program !== "system") {
+      continue;
+    }
+
+    const parsed = instruction.parsed as
+      | { type?: string; info?: Record<string, unknown> }
+      | undefined;
+    if (parsed?.type !== "transfer" || !parsed.info) {
+      continue;
+    }
+
+    const source = String(parsed.info.source ?? "");
+    const destination = String(parsed.info.destination ?? "");
+    const transferLamports = Number(parsed.info.lamports ?? 0);
+
+    if (
+      source === expectedSource &&
+      destination === expectedDestination &&
+      transferLamports === lamports
+    ) {
+      matchedTransfer = true;
+      break;
+    }
+  }
+
+  if (!matchedTransfer) {
+    throw new Error(
+      "Signed transaction does not match expected wallet-to-vault stake transfer."
+    );
+  }
+
+  return expectedDestination;
 }
 
 function getStakingProvider(): StakingProvider {
@@ -207,6 +293,7 @@ export const defaultStakeExecutionDeps: StakeExecutionDeps = {
   refreshStoredGreenScore,
   getVaultAddress: getVaultAddressFromEnv,
   sendStakeTransfer,
+  verifyWalletStakeSignature,
   executeProtocolStake,
 };
 
@@ -214,8 +301,8 @@ export async function executeDemoStake(
   request: StakeRequest,
   deps: StakeExecutionDeps = defaultStakeExecutionDeps
 ): Promise<StakeResponse> {
-  const payer = deps.getApiPayer();
   const connection = deps.getSolanaConnection();
+  const payer = request.solanaSignature ? null : deps.getApiPayer();
 
   const greenScoreResponse = await deps.refreshStoredGreenScore(request.wallet);
   const baseApy = await getProtocolBaseApy();
@@ -232,20 +319,41 @@ export async function executeDemoStake(
   }
 
   const protocolExecution = deps.executeProtocolStake
-    ? await deps.executeProtocolStake({
-        connection,
-        payer,
-        lamports,
-      })
+    ? request.solanaSignature
+      ? null
+      : await deps.executeProtocolStake(
+          (() => {
+            if (!payer) {
+              throw new Error("API payer is required for server-side staking.");
+            }
+            return { connection, payer, lamports };
+          })()
+        )
     : null;
 
   let destinationAddress: string;
   let solanaSignature: string;
 
-  if (protocolExecution) {
+  if (request.solanaSignature) {
+    await deps.confirmSolanaSignature(request.solanaSignature);
+    const vaultAddress = deps.getVaultAddress();
+    destinationAddress = deps.verifyWalletStakeSignature
+      ? await deps.verifyWalletStakeSignature({
+          connection,
+          signature: request.solanaSignature,
+          wallet: request.wallet,
+          vaultAddress,
+          lamports,
+        })
+      : vaultAddress.toBase58();
+    solanaSignature = request.solanaSignature;
+  } else if (protocolExecution) {
     destinationAddress = protocolExecution.destinationAddress;
     solanaSignature = protocolExecution.solanaSignature;
   } else {
+    if (!payer) {
+      throw new Error("API payer is required for demo transfer staking.");
+    }
     const vaultAddress = deps.getVaultAddress();
     solanaSignature = await deps.sendStakeTransfer({
       connection,
@@ -256,7 +364,9 @@ export async function executeDemoStake(
     destinationAddress = vaultAddress.toBase58();
   }
 
-  await deps.confirmSolanaSignature(solanaSignature);
+  if (!request.solanaSignature) {
+    await deps.confirmSolanaSignature(solanaSignature);
+  }
 
   const user = await prisma.user.upsert({
     where: { walletAddress: request.wallet },

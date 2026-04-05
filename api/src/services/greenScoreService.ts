@@ -36,8 +36,8 @@ export async function refreshStoredGreenScore(
   const snapshot = emissionsService.getCanonicalSnapshot(wallet);
   const confirmedOffsets = await prisma.impactRecord.findMany({
     where: {
+      walletAddress: wallet,
       status: OffsetStatus.RECORDED_ON_CHAIN,
-      user: { walletAddress: wallet },
     },
     select: {
       co2OffsetGrams: true,
@@ -96,12 +96,31 @@ export async function refreshStoredGreenScore(
   };
 
   const baseScore = clampGreenScore(computeWeightedScore(breakdown));
+  const baseTier = getGreenScoreTier(baseScore);
   const user = await prisma.user.upsert({
     where: { walletAddress: wallet },
-    update: {},
+    update: {
+      greenScore: baseScore,
+      greenScoreCurrent: baseScore,
+      greenTierCurrent: baseTier,
+      breakdownTransactionEfficiency: breakdown.transactionEfficiency,
+      breakdownSpendingHabits: breakdown.spendingHabits,
+      breakdownCarbonOffsets: breakdown.carbonOffsets,
+      breakdownCommunityImpact: breakdown.communityImpact,
+      totalCo2eOffset: confirmedOffsetGrams,
+      offsetCount,
+    },
     create: {
       walletAddress: wallet,
       greenScore: baseScore,
+      greenScoreCurrent: baseScore,
+      greenTierCurrent: baseTier,
+      breakdownTransactionEfficiency: breakdown.transactionEfficiency,
+      breakdownSpendingHabits: breakdown.spendingHabits,
+      breakdownCarbonOffsets: breakdown.carbonOffsets,
+      breakdownCommunityImpact: breakdown.communityImpact,
+      totalCo2eOffset: confirmedOffsetGrams,
+      offsetCount,
     },
   });
   const irresponsibleSpend =
@@ -128,9 +147,14 @@ export async function refreshStoredGreenScore(
   });
 
   const score = clampGreenScore(adjustedScore);
+  const tier = getGreenScoreTier(score);
   await prisma.user.update({
     where: { id: user.id },
-    data: { greenScore: score },
+    data: {
+      greenScore: score,
+      greenScoreCurrent: score,
+      greenTierCurrent: tier,
+    },
   });
   await enforceLowScoreYieldReset({
     offenderUserId: user.id,
@@ -148,7 +172,7 @@ export async function refreshStoredGreenScore(
   return {
     wallet,
     score,
-    tier: getGreenScoreTier(score),
+    tier,
     breakdown,
     rank: totalUsers > 0 ? higherScores + 1 : undefined,
     totalUsers: totalUsers || undefined,

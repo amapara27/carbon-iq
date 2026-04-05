@@ -37,7 +37,7 @@ leaderboardRouter.get("/", async (req: Request, res: Response) => {
     });
 
     // Get paginated users sorted by green score
-    const users = await prisma.user.findMany({
+    const users = (await prisma.user.findMany({
       where: { greenScore: { gt: 0 } },
       orderBy: { greenScore: "desc" },
       skip,
@@ -47,11 +47,16 @@ leaderboardRouter.get("/", async (req: Request, res: Response) => {
           select: { co2OffsetGrams: true },
         },
       },
-    });
+    })) as Array<{
+      walletAddress: string;
+      greenScore: number;
+      impacts: Array<{ co2OffsetGrams: number }>;
+    }>;
 
     const entries = users.map((user, index) => {
       const totalCo2eOffset = user.impacts.reduce(
-        (sum, impact) => sum + impact.co2OffsetGrams,
+        (sum: number, impact: { co2OffsetGrams: number }) =>
+          sum + impact.co2OffsetGrams,
         0
       );
 

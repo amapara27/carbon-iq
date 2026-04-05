@@ -34,7 +34,7 @@ export async function refreshStoredGreenScore(
   wallet: string
 ): Promise<GreenScoreResponse> {
   const snapshot = emissionsService.getCanonicalSnapshot(wallet);
-  const confirmedOffsets = await prisma.impactRecord.findMany({
+  const confirmedOffsets = (await prisma.impactRecord.findMany({
     where: {
       walletAddress: wallet,
       status: OffsetStatus.RECORDED_ON_CHAIN,
@@ -42,10 +42,11 @@ export async function refreshStoredGreenScore(
     select: {
       co2OffsetGrams: true,
     },
-  });
+  })) as Array<{ co2OffsetGrams: number }>;
 
   const confirmedOffsetGrams = confirmedOffsets.reduce(
-    (sum, offset) => sum + offset.co2OffsetGrams,
+    (sum: number, offset: { co2OffsetGrams: number }) =>
+      sum + offset.co2OffsetGrams,
     0
   );
   const offsetCount = confirmedOffsets.length;

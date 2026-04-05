@@ -213,7 +213,7 @@ export async function enforceLowScoreYieldReset(input: {
     const perUser = roundTo(usersShareRaw / eligibleRows.length, 6);
     if (perUser > 0) {
       await prisma.yieldRedistributionCredit.createMany({
-        data: eligibleRows.map((row) => ({
+        data: eligibleRows.map((row: { id: string }) => ({
           eventId: event.id,
           userId: row.id,
           amount: perUser,

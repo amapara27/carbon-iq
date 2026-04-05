@@ -7,6 +7,7 @@ import { useGreenScore } from "@/hooks/useGreenScore";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { parseUploadFile, type DemoMode, type DemoTransactionInput } from "@/lib/demoBank";
+import { isUploadRefreshRequired, markUploadCompleted, uploadEpochGate } from "@/lib/uploadEpochGate";
 import { Coins, Database, Globe, Landmark, TreePine, TrendingUp, Zap } from "lucide-react";
 
 interface DemoConnectBankResponse {
@@ -92,10 +93,12 @@ export default function Dashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCheckingTransactions, setIsCheckingTransactions] = useState(false);
   const [hasBankTransactions, setHasBankTransactions] = useState<boolean | null>(null);
+  const [uploadRefreshRequired, setUploadRefreshRequired] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const hasStakePosition = (stakingInfo?.stakedAmount ?? 0) > 0;
-  const dashboardLocked = Boolean(wallet) && hasBankTransactions === false;
+  const dashboardLocked =
+    Boolean(wallet) && (hasBankTransactions === false || uploadRefreshRequired);
   const stakingMultiplier =
     stakingInfo && stakingInfo.baseApy > 0
       ? stakingInfo.effectiveApy / stakingInfo.baseApy
@@ -165,6 +168,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!wallet) {
+      setUploadRefreshRequired(false);
       setHasBankTransactions(null);
       setIsCheckingTransactions(false);
       return;
@@ -181,10 +185,12 @@ export default function Dashboard() {
         });
         if (!cancelled) {
           setHasBankTransactions(hasNonSeededTransactions(response));
+          setUploadRefreshRequired(isUploadRefreshRequired(wallet));
         }
       } catch {
         if (!cancelled) {
           setHasBankTransactions(false);
+          setUploadRefreshRequired(true);
         }
       } finally {
         if (!cancelled) {
@@ -245,6 +251,8 @@ export default function Dashboard() {
       setAnalysisResult(null);
       if (response.transactionCount > 0) {
         setHasBankTransactions(true);
+        markUploadCompleted(wallet, response.connectedAt);
+        setUploadRefreshRequired(false);
       }
       setMessage(`Bank connected via ${response.sourceLabel}.`);
     } catch (connectError) {
@@ -340,13 +348,13 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle>Upload Required Before Dashboard Access</CardTitle>
             <CardDescription>
-              No bank transactions were found for this wallet. Upload a `.json` or `.csv`
-              file to unlock your dashboard.
+              {hasBankTransactions === false
+                ? "No bank transactions were found for this wallet. Upload a transaction file to unlock your dashboard."
+                : `Recent transactions must be re-uploaded every ${uploadEpochGate.refreshWindowDays} days (two epochs). Upload a new file to continue.`}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <p className="text-sm text-stone-300">Upload `.json` or `.csv`</p>
               <input
                 type="file"
                 accept=".json,.csv"
@@ -462,9 +470,6 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="rounded-xl border border-stone-800/70 bg-surface-900/35 p-3 space-y-2">
-                    <p className="text-[11px] uppercase tracking-wider text-stone-500 font-medium">
-                      Upload `.json` or `.csv`
-                    </p>
                     <input
                       type="file"
                       accept=".json,.csv"

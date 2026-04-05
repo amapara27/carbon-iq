@@ -1,7 +1,7 @@
 # CarbonIQ — Solana Blockchain Backend Implementation Plan
 
 > **Target network:** Solana **devnet**
-> **Monorepo root:** `/Users/aayanmapara/Hackathons/innovation-hacks`
+> **Monorepo root:** `/Users/aayanmapara/Hackathons/carbon-iq`
 > **Shared contracts:** `@carboniq/contracts` in `contracts/`
 
 ---
@@ -99,7 +99,7 @@ solana airdrop 2 anchor/tests/test-user.json --url devnet
 
 #### 0.3 Update Anchor.toml for Devnet
 
-##### [MODIFY] [Anchor.toml](file:///Users/aayanmapara/Hackathons/innovation-hacks/anchor/Anchor.toml)
+##### [MODIFY] [Anchor.toml](file:///Users/aayanmapara/Hackathons/carbon-iq/anchor/Anchor.toml)
 
 Change cluster from `Localnet` to `Devnet` and add a `[programs.devnet]` section:
 
@@ -136,7 +136,7 @@ Already in `api/package.json` (`"@solana/web3.js": "^1.98.0"`). Run `npm install
 
 #### 0.6 Environment Variables
 
-##### [MODIFY] [.env.example](file:///Users/aayanmapara/Hackathons/innovation-hacks/api/.env.example)
+##### [MODIFY] [.env.example](file:///Users/aayanmapara/Hackathons/carbon-iq/api/.env.example)
 
 ```env
 # CarbonIQ API Environment
@@ -161,7 +161,7 @@ Enhance the Anchor program to store `credit_type`, deploy to devnet, and generat
 
 ### 1.1 Enhance the Anchor Program
 
-##### [MODIFY] [lib.rs](file:///Users/aayanmapara/Hackathons/innovation-hacks/anchor/programs/carbon_iq/src/lib.rs)
+##### [MODIFY] [lib.rs](file:///Users/aayanmapara/Hackathons/carbon-iq/anchor/programs/carbon_iq/src/lib.rs)
 
 **Changes needed:**
 1. Replace placeholder `declare_id!()` with real program ID
@@ -230,7 +230,7 @@ pub enum ErrorCode {
 
 ### 1.2 Update Anchor Tests
 
-##### [MODIFY] [carbon_iq.ts](file:///Users/aayanmapara/Hackathons/innovation-hacks/anchor/tests/carbon_iq.ts)
+##### [MODIFY] [carbon_iq.ts](file:///Users/aayanmapara/Hackathons/carbon-iq/anchor/tests/carbon_iq.ts)
 
 - Pass `credit_type` param to `recordImpact` and `updateImpact`
 - Assert `creditType` field on fetched accounts
@@ -294,7 +294,7 @@ Constants from `@carboniq/contracts`:
 
 ### 2.2 Create Staking Service
 
-##### [NEW] [stakingService.ts](file:///Users/aayanmapara/Hackathons/innovation-hacks/api/src/services/stakingService.ts)
+##### [NEW] [stakingService.ts](file:///Users/aayanmapara/Hackathons/carbon-iq/api/src/services/stakingService.ts)
 
 ```typescript
 import {
@@ -334,7 +334,7 @@ export function simulateStake(
 
 ### 2.3 Update `POST /api/simulate-stake`
 
-##### [MODIFY] [simulateStake.ts](file:///Users/aayanmapara/Hackathons/innovation-hacks/api/src/routes/simulateStake.ts)
+##### [MODIFY] [simulateStake.ts](file:///Users/aayanmapara/Hackathons/carbon-iq/api/src/routes/simulateStake.ts)
 
 - Import `SimulateStakeRequestSchema` from `@carboniq/contracts` (replace inline schema)
 - Use `stakingService.simulateStake()` instead of inline math
@@ -342,7 +342,7 @@ export function simulateStake(
 
 ### 2.4 Create `GET /api/staking-info`
 
-##### [NEW] [stakingInfo.ts](file:///Users/aayanmapara/Hackathons/innovation-hacks/api/src/routes/stakingInfo.ts)
+##### [NEW] [stakingInfo.ts](file:///Users/aayanmapara/Hackathons/carbon-iq/api/src/routes/stakingInfo.ts)
 
 **Request:** `GET /api/staking-info?wallet=<address>`
 
@@ -368,7 +368,7 @@ export function simulateStake(
 
 ### 2.5 Register New Route
 
-##### [MODIFY] [index.ts](file:///Users/aayanmapara/Hackathons/innovation-hacks/api/src/index.ts)
+##### [MODIFY] [index.ts](file:///Users/aayanmapara/Hackathons/carbon-iq/api/src/index.ts)
 
 Add:
 ```typescript
@@ -378,7 +378,7 @@ app.use("/api/staking-info", stakingInfoRouter);
 
 ### 2.6 Update Prisma Schema (optional StakeRecord)
 
-##### [MODIFY] [schema.prisma](file:///Users/aayanmapara/Hackathons/innovation-hacks/api/prisma/schema.prisma)
+##### [MODIFY] [schema.prisma](file:///Users/aayanmapara/Hackathons/carbon-iq/api/prisma/schema.prisma)
 
 Add a `StakeRecord` model for simulation history:
 ```prisma
@@ -413,7 +413,7 @@ When the AI Backend's Offset Agent triggers an offset, this endpoint writes proo
 
 ### 3.1 Create Solana Service
 
-##### [NEW] [solanaService.ts](file:///Users/aayanmapara/Hackathons/innovation-hacks/api/src/services/solanaService.ts)
+##### [NEW] [solanaService.ts](file:///Users/aayanmapara/Hackathons/carbon-iq/api/src/services/solanaService.ts)
 
 Core service that wraps `@solana/web3.js` + `@coral-xyz/anchor`:
 
@@ -476,7 +476,7 @@ export function getProofOfImpactPda(userWallet: string): PublicKey
 
 ### 3.2 Mock Toucan Integration
 
-##### [NEW] [toucanService.ts](file:///Users/aayanmapara/Hackathons/innovation-hacks/api/src/services/toucanService.ts)
+##### [NEW] [toucanService.ts](file:///Users/aayanmapara/Hackathons/carbon-iq/api/src/services/toucanService.ts)
 
 ```typescript
 /**
@@ -509,7 +509,7 @@ export async function mockRetireCarbonCredits(
 
 ### 3.3 Create `POST /api/record-offset` Endpoint
 
-##### [NEW] [recordOffset.ts](file:///Users/aayanmapara/Hackathons/innovation-hacks/api/src/routes/recordOffset.ts)
+##### [NEW] [recordOffset.ts](file:///Users/aayanmapara/Hackathons/carbon-iq/api/src/routes/recordOffset.ts)
 
 **Request** (validated by `RecordOffsetRequestSchema`):
 ```json
@@ -544,7 +544,7 @@ export async function mockRetireCarbonCredits(
 
 ### 3.4 Update Prisma Schema for Offset Metadata
 
-##### [MODIFY] [schema.prisma](file:///Users/aayanmapara/Hackathons/innovation-hacks/api/prisma/schema.prisma)
+##### [MODIFY] [schema.prisma](file:///Users/aayanmapara/Hackathons/carbon-iq/api/prisma/schema.prisma)
 
 Enhance `ImpactRecord`:
 ```prisma
@@ -565,7 +565,7 @@ model ImpactRecord {
 
 ### 3.5 Register the Route
 
-##### [MODIFY] [index.ts](file:///Users/aayanmapara/Hackathons/innovation-hacks/api/src/index.ts)
+##### [MODIFY] [index.ts](file:///Users/aayanmapara/Hackathons/carbon-iq/api/src/index.ts)
 
 ```typescript
 import { recordOffsetRouter } from "./routes/recordOffset.js";
@@ -581,7 +581,7 @@ Build mock Impact NFT metadata (Metaplex-compatible JSON) and a leaderboard API 
 
 ### 4.1 NFT Metadata Endpoint
 
-##### [NEW] [nftMetadata.ts](file:///Users/aayanmapara/Hackathons/innovation-hacks/api/src/routes/nftMetadata.ts)
+##### [NEW] [nftMetadata.ts](file:///Users/aayanmapara/Hackathons/carbon-iq/api/src/routes/nftMetadata.ts)
 
 **Request:** `GET /api/nft-metadata?wallet=<address>`
 
@@ -630,7 +630,7 @@ Build mock Impact NFT metadata (Metaplex-compatible JSON) and a leaderboard API 
 
 ### 4.2 Leaderboard Endpoint
 
-##### [NEW] [leaderboard.ts](file:///Users/aayanmapara/Hackathons/innovation-hacks/api/src/routes/leaderboard.ts)
+##### [NEW] [leaderboard.ts](file:///Users/aayanmapara/Hackathons/carbon-iq/api/src/routes/leaderboard.ts)
 
 **Request:** `GET /api/leaderboard?page=1&pageSize=20`
 
@@ -664,7 +664,7 @@ Build mock Impact NFT metadata (Metaplex-compatible JSON) and a leaderboard API 
 
 ### 4.3 Seed Leaderboard Data
 
-##### [NEW] [seed.ts](file:///Users/aayanmapara/Hackathons/innovation-hacks/api/prisma/seed.ts)
+##### [NEW] [seed.ts](file:///Users/aayanmapara/Hackathons/carbon-iq/api/prisma/seed.ts)
 
 Create a seed script that:
 1. Generates ~50 mock users with random wallet addresses
@@ -674,7 +674,7 @@ Create a seed script that:
 
 ### 4.4 Register the Routes
 
-##### [MODIFY] [index.ts](file:///Users/aayanmapara/Hackathons/innovation-hacks/api/src/index.ts)
+##### [MODIFY] [index.ts](file:///Users/aayanmapara/Hackathons/carbon-iq/api/src/index.ts)
 
 ```typescript
 import { nftMetadataRouter } from "./routes/nftMetadata.js";
@@ -692,7 +692,7 @@ End-to-end testing of all on-chain flows, ensure devnet transactions work reliab
 
 ### 5.1 Anchor Program Tests (Devnet)
 
-##### [MODIFY] [carbon_iq.ts](file:///Users/aayanmapara/Hackathons/innovation-hacks/anchor/tests/carbon_iq.ts)
+##### [MODIFY] [carbon_iq.ts](file:///Users/aayanmapara/Hackathons/carbon-iq/anchor/tests/carbon_iq.ts)
 
 Expand tests to cover:
 - ✅ `record_impact` with `credit_type` param
@@ -703,7 +703,7 @@ Expand tests to cover:
 
 ### 5.2 API Integration Tests
 
-##### [NEW] [api.test.ts](file:///Users/aayanmapara/Hackathons/innovation-hacks/api/tests/api.test.ts)
+##### [NEW] [api.test.ts](file:///Users/aayanmapara/Hackathons/carbon-iq/api/tests/api.test.ts)
 
 Test each endpoint:
 

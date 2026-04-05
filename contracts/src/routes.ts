@@ -44,6 +44,18 @@ export const API_ROUTES = {
     owner: "ai" as const,
   },
 
+  RECOMMENDATION_ACTIONS: {
+    path: "/api/recommendation-actions",
+    method: "POST" as const,
+    owner: "ai" as const,
+  },
+
+  WALLET_STATE: {
+    path: "/api/wallet-state",
+    method: "GET" as const,
+    owner: "shared" as const,
+  },
+
   /** Offset Agent: decide credit type + amount, mock Toucan purchase. */
   TRIGGER_OFFSET: {
     path: "/api/trigger-offset",

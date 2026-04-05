@@ -39,6 +39,8 @@ type UserDoc = {
   stakingAccruedYield?: number;
   stakeVaultAddress?: string;
   stakingUpdatedAt?: Date;
+  latestUploadAt?: Date;
+  latestUploadSourceLabel?: string;
   totalCo2eOffset?: number;
   offsetCount?: number;
   createdAt: Date;
@@ -106,6 +108,16 @@ type RecommendationRunDoc = {
   promptHash?: string;
   createdAt: Date;
   suggestions: unknown;
+};
+
+type RecommendationActionDoc = {
+  _id: ObjectId;
+  userId: ObjectId;
+  walletAddress: string;
+  recommendationRunId: ObjectId;
+  suggestionKey: string;
+  action: string;
+  actedAt: Date;
 };
 
 type ProtocolRateSnapshotDoc = {
@@ -323,6 +335,28 @@ function buildImpactFilter(where?: any): Document {
   return filter;
 }
 
+function buildTransactionFilter(where?: any): Document {
+  const filter: Document = {};
+  if (!where) {
+    return filter;
+  }
+
+  if (where.walletAddress) {
+    filter.walletAddress = where.walletAddress;
+  }
+  if (where.source) {
+    filter.source = where.source;
+  }
+  if (where.sourceLabel) {
+    filter.sourceLabel = where.sourceLabel;
+  }
+  if (where.transactionId) {
+    filter.transactionId = where.transactionId;
+  }
+
+  return filter;
+}
+
 function buildStakeFilter(where?: any): Document {
   const filter: Document = {};
   if (!where) {
@@ -356,6 +390,47 @@ function buildSnapshotFilter(where?: any): Document {
   }
   if (where.capturedAt?.lte) {
     filter.capturedAt = { $lte: where.capturedAt.lte };
+  }
+
+  return filter;
+}
+
+function buildRecommendationRunFilter(where?: any): Document {
+  const filter: Document = {};
+  if (!where) {
+    return filter;
+  }
+
+  if (where.walletAddress) {
+    filter.walletAddress = where.walletAddress;
+  }
+  if (where.userId) {
+    filter.userId = toObjectId(where.userId);
+  }
+
+  return filter;
+}
+
+function buildRecommendationActionFilter(where?: any): Document {
+  const filter: Document = {};
+  if (!where) {
+    return filter;
+  }
+
+  if (where.walletAddress) {
+    filter.walletAddress = where.walletAddress;
+  }
+  if (where.userId) {
+    filter.userId = toObjectId(where.userId);
+  }
+  if (where.recommendationRunId) {
+    filter.recommendationRunId = toObjectId(where.recommendationRunId);
+  }
+  if (where.suggestionKey) {
+    filter.suggestionKey = where.suggestionKey;
+  }
+  if (where.action) {
+    filter.action = where.action;
   }
 
   return filter;
@@ -417,6 +492,8 @@ function normalizeUserCreate(input: any, walletAddress: string, now: Date): Omit
     stakingAccruedYield: input.stakingAccruedYield ?? 0,
     stakeVaultAddress: input.stakeVaultAddress,
     stakingUpdatedAt: input.stakingUpdatedAt,
+    latestUploadAt: input.latestUploadAt,
+    latestUploadSourceLabel: input.latestUploadSourceLabel,
     totalCo2eOffset: input.totalCo2eOffset ?? 0,
     offsetCount: input.offsetCount ?? 0,
     createdAt: input.createdAt ?? now,
@@ -491,6 +568,19 @@ async function getProjectedStakes(userId: ObjectId, select?: Record<string, bool
   return stakes.map((stake) => applySelect(serializeId(stake), select));
 }
 
+async function getProjectedTransactions(
+  userId: ObjectId,
+  select?: Record<string, boolean>
+) {
+  const transactions = await (await getCollection<TransactionDoc>("Transaction"))
+    .find({ userId })
+    .toArray();
+
+  return transactions.map((transaction) =>
+    applySelect(serializeId(transaction), select)
+  );
+}
+
 async function projectUser(userDoc: UserDoc, args?: any) {
   const normalized = normalizeUser(userDoc) as Record<string, unknown>;
 
@@ -505,6 +595,13 @@ async function projectUser(userDoc: UserDoc, args?: any) {
     normalized.stakes = await getProjectedStakes(
       userDoc._id,
       args.include.stakes.select
+    );
+  }
+
+  if (args?.include?.transactions) {
+    normalized.transactions = await getProjectedTransactions(
+      userDoc._id,
+      args.include.transactions.select
     );
   }
 
@@ -631,6 +728,18 @@ export const prisma: any = {
       }
       return serializeId(transactionDoc);
     },
+
+    async findMany(args: any = {}) {
+      const collection = await getCollection<TransactionDoc>("Transaction");
+      const docs = await collection
+        .find(buildTransactionFilter(args.where))
+        .sort(toSort(args.orderBy))
+        .skip(args.skip ?? 0)
+        .limit(args.take ?? 0)
+        .toArray();
+
+      return docs.map((doc) => applySelect(serializeId(doc), args.select));
+    },
   },
 
   recommendationRun: {
@@ -651,6 +760,55 @@ export const prisma: any = {
 
       await collection.insertOne(document);
       return serializeId(document);
+    },
+
+    async findFirst(args: any = {}) {
+      const collection = await getCollection<RecommendationRunDoc>("RecommendationRun");
+      const doc = await collection
+        .find(buildRecommendationRunFilter(args.where))
+        .sort(toSort(args.orderBy))
+        .limit(1)
+        .next();
+
+      if (!doc) {
+        return null;
+      }
+
+      return applySelect(serializeId(doc), args.select);
+    },
+  },
+
+  recommendationAction: {
+    async create(args: any) {
+      const collection = await getCollection<RecommendationActionDoc>(
+        "RecommendationAction"
+      );
+      const document: RecommendationActionDoc = {
+        _id: new ObjectId(),
+        userId: toObjectId(args.data.userId),
+        walletAddress: args.data.walletAddress,
+        recommendationRunId: toObjectId(args.data.recommendationRunId),
+        suggestionKey: args.data.suggestionKey,
+        action: args.data.action,
+        actedAt: args.data.actedAt ?? new Date(),
+      };
+
+      await collection.insertOne(document);
+      return serializeId(document);
+    },
+
+    async findMany(args: any = {}) {
+      const collection = await getCollection<RecommendationActionDoc>(
+        "RecommendationAction"
+      );
+      const docs = await collection
+        .find(buildRecommendationActionFilter(args.where))
+        .sort(toSort(args.orderBy))
+        .skip(args.skip ?? 0)
+        .limit(args.take ?? 0)
+        .toArray();
+
+      return docs.map((doc) => applySelect(serializeId(doc), args.select));
     },
   },
 

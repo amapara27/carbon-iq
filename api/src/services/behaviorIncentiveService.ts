@@ -3,19 +3,19 @@ import { clampGreenScore } from "../lib/blockchain.js";
 import { roundTo } from "../lib/aiMath.js";
 
 const IRRESPONSIBLE_SHARE_THRESHOLD = Number(
-  process.env.GREEN_SCORE_IRRESPONSIBLE_SHARE_THRESHOLD ?? 0.5
+  process.env.GREEN_SCORE_IRRESPONSIBLE_SHARE_THRESHOLD ?? 0.58
 );
 const IRRESPONSIBLE_SPENDING_HABITS_THRESHOLD = Number(
-  process.env.GREEN_SCORE_IRRESPONSIBLE_SPENDING_THRESHOLD ?? 42
+  process.env.GREEN_SCORE_IRRESPONSIBLE_SPENDING_THRESHOLD ?? 36
 );
 const STREAK_PENALTY_START = Number(
-  process.env.GREEN_SCORE_STREAK_PENALTY_START ?? 2
+  process.env.GREEN_SCORE_STREAK_PENALTY_START ?? 3
 );
 const PENALTY_PER_STREAK = Number(
-  process.env.GREEN_SCORE_PENALTY_PER_STREAK ?? 3
+  process.env.GREEN_SCORE_PENALTY_PER_STREAK ?? 2
 );
 const MAX_STREAK_PENALTY = Number(
-  process.env.GREEN_SCORE_MAX_STREAK_PENALTY ?? 24
+  process.env.GREEN_SCORE_MAX_STREAK_PENALTY ?? 16
 );
 const LOW_SCORE_RESET_THRESHOLD = Number(
   process.env.GREEN_SCORE_RESET_THRESHOLD ?? 25

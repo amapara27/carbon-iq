@@ -40,6 +40,8 @@ type SimulateStakeRouteModule = typeof import("../src/routes/simulateStake.js");
 type StakeRouteModule = typeof import("../src/routes/stake.js");
 type StakingInfoRouteModule = typeof import("../src/routes/stakingInfo.js");
 type LeaderboardRouteModule = typeof import("../src/routes/leaderboard.js");
+type WalletStateRouteModule = typeof import("../src/routes/walletState.js");
+type RecommendationActionsRouteModule = typeof import("../src/routes/recommendationActions.js");
 type NftMetadataRouteModule = typeof import("../src/routes/nftMetadata.js");
 type RecordOffsetRouteModule = typeof import("../src/routes/recordOffset.js");
 type GreenScoreServiceModule = typeof import("../src/services/greenScoreService.js");
@@ -54,6 +56,8 @@ let simulateStakeRouteModule: SimulateStakeRouteModule;
 let stakeRouteModule: StakeRouteModule;
 let stakingInfoRouteModule: StakingInfoRouteModule;
 let leaderboardRouteModule: LeaderboardRouteModule;
+let walletStateRouteModule: WalletStateRouteModule;
+let recommendationActionsRouteModule: RecommendationActionsRouteModule;
 let nftMetadataRouteModule: NftMetadataRouteModule;
 let recordOffsetRouteModule: RecordOffsetRouteModule;
 let greenScoreServiceModule: GreenScoreServiceModule;
@@ -162,6 +166,10 @@ before(async () => {
   stakeRouteModule = await import("../src/routes/stake.js");
   stakingInfoRouteModule = await import("../src/routes/stakingInfo.js");
   leaderboardRouteModule = await import("../src/routes/leaderboard.js");
+  walletStateRouteModule = await import("../src/routes/walletState.js");
+  recommendationActionsRouteModule = await import(
+    "../src/routes/recommendationActions.js"
+  );
   nftMetadataRouteModule = await import("../src/routes/nftMetadata.js");
   recordOffsetRouteModule = await import("../src/routes/recordOffset.js");
   greenScoreServiceModule = await import("../src/services/greenScoreService.js");
@@ -817,12 +825,209 @@ describe("unified backend routes", () => {
     });
 
     assert.equal(response.status, 200);
-    assert.equal(response.body.totalEntries, 2);
-    assert.equal(response.body.totalPages, 2);
+    assert.equal(response.body.totalEntries, 25);
+    assert.equal(response.body.totalPages, 25);
     assert.equal(response.body.entries.length, 1);
     assert.equal(response.body.entries[0].wallet, firstUser.walletAddress);
     assert.equal(response.body.entries[0].score, 95);
     assert.equal(response.body.entries[0].totalCo2eOffset, 8_000);
+  });
+
+  it("GET /api/wallet-state rehydrates uploaded analysis, score, staking, and saved recommendations", async () => {
+    const wallet = randomWallet();
+    const uploadedAt = new Date("2026-04-05T10:15:00.000Z");
+    const sourceLabel = `upload:${uploadedAt.toISOString()}`;
+    const suggestionKey = "groceries::current::swap";
+    const user = await prismaModule.prisma.user.create({
+      data: {
+        walletAddress: wallet,
+        greenScore: 84,
+        breakdownTransactionEfficiency: 88,
+        breakdownSpendingHabits: 82,
+        breakdownCarbonOffsets: 14,
+        breakdownCommunityImpact: 9,
+        stakingBaseApy: STAKING_BASE_APY,
+        stakingGreenBonus: 1.25,
+        stakingEffectiveApy: STAKING_BASE_APY + 1.25,
+        stakingStakedAmount: 3.5,
+        stakeVaultAddress: randomWallet(),
+        latestUploadAt: uploadedAt,
+        latestUploadSourceLabel: sourceLabel,
+      },
+    });
+
+    await prismaModule.prisma.transaction.upsert({
+      where: {
+        walletAddress_transactionId: {
+          walletAddress: wallet,
+          transactionId: "upload_1",
+        },
+      },
+      create: {
+        walletAddress: wallet,
+        transactionId: "upload_1",
+        description: "Whole Foods",
+        amountUsd: 84.12,
+        mccCode: "5411",
+        category: EmissionCategory.GROCERIES,
+        co2eGrams: 640,
+        emissionFactor: 0.0076,
+        date: new Date("2026-04-04T12:00:00.000Z"),
+        sourceLabel,
+        analyzedAt: uploadedAt,
+      },
+      update: {},
+    });
+    await prismaModule.prisma.transaction.upsert({
+      where: {
+        walletAddress_transactionId: {
+          walletAddress: wallet,
+          transactionId: "upload_2",
+        },
+      },
+      create: {
+        walletAddress: wallet,
+        transactionId: "upload_2",
+        description: "Dr. Bronner's Soap",
+        amountUsd: 19.49,
+        mccCode: "5999",
+        category: EmissionCategory.HEALTH,
+        co2eGrams: 210,
+        emissionFactor: 0.0108,
+        date: new Date("2026-04-03T12:00:00.000Z"),
+        sourceLabel,
+        analyzedAt: uploadedAt,
+      },
+      update: {},
+    });
+
+    const recommendationRun = await prismaModule.prisma.recommendationRun.create({
+      data: {
+        userId: user.id,
+        walletAddress: wallet,
+        categoriesRequested: [EmissionCategory.GROCERIES],
+        suggestions: [
+          {
+            currentCategory: EmissionCategory.GROCERIES,
+            currentDescription: "Name-brand oat milk",
+            currentCo2eMonthly: 1_220,
+            alternativeDescription: "Store-brand oat milk",
+            alternativeCo2eMonthly: 720,
+            co2eSavingsMonthly: 500,
+            priceDifferenceUsd: -1.15,
+            difficulty: "easy",
+          },
+        ],
+        totalPotentialSavingsMonthly: 500,
+        narratorProvider: "openai",
+        model: "gpt-5.4-mini",
+        promptHash: "wallet-state-test",
+        createdAt: uploadedAt,
+      },
+    });
+
+    await prismaModule.prisma.recommendationAction.create({
+      data: {
+        userId: user.id,
+        walletAddress: wallet,
+        recommendationRunId: recommendationRun.id,
+        suggestionKey,
+        action: "adopted",
+        actedAt: uploadedAt,
+      },
+    });
+
+    const response = await requestJson(walletStateRouteModule.walletStateRouter, {
+      method: "GET",
+      path: `/?wallet=${wallet}`,
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(response.body.wallet, wallet);
+    assert.equal(response.body.hasUploadedTransactions, true);
+    assert.equal(response.body.latestUploadAt, uploadedAt.toISOString());
+    assert.equal(response.body.analysis?.transactionCount, 2);
+    assert.equal(response.body.analysis?.totalCo2eGrams, 850);
+    assert.equal(response.body.greenScore?.score, 84);
+    assert.equal(response.body.stakingInfo?.stakedAmount, 3.5);
+    assert.equal(response.body.latestRecommendations?.suggestions.length, 1);
+    assert.deepEqual(response.body.adoptedSuggestionKeys, [suggestionKey]);
+  });
+
+  it("POST /api/recommendation-actions persists adopted and cleared swap state", async () => {
+    const wallet = randomWallet();
+    const user = await prismaModule.prisma.user.create({
+      data: { walletAddress: wallet, greenScore: 71 },
+    });
+    await prismaModule.prisma.recommendationRun.create({
+      data: {
+        userId: user.id,
+        walletAddress: wallet,
+        categoriesRequested: [EmissionCategory.GROCERIES],
+        suggestions: [
+          {
+            currentCategory: EmissionCategory.GROCERIES,
+            currentDescription: "Brand-name granola",
+            currentCo2eMonthly: 980,
+            alternativeDescription: "Bulk-bin granola",
+            alternativeCo2eMonthly: 520,
+            co2eSavingsMonthly: 460,
+            priceDifferenceUsd: -0.85,
+            difficulty: "easy",
+          },
+        ],
+        totalPotentialSavingsMonthly: 460,
+        narratorProvider: "openai",
+        model: "gpt-5.4-mini",
+        promptHash: "recommendation-action-test",
+      },
+    });
+
+    const adoptedResponse = await requestJson(
+      recommendationActionsRouteModule.recommendationActionsRouter,
+      {
+        method: "POST",
+        path: "/",
+        body: {
+          wallet,
+          suggestionKey: "groceries::adopt-me",
+          action: "adopted",
+        },
+      }
+    );
+
+    assert.equal(adoptedResponse.status, 200);
+    assert.equal(adoptedResponse.body.action, "adopted");
+
+    const adoptedState = await requestJson(walletStateRouteModule.walletStateRouter, {
+      method: "GET",
+      path: `/?wallet=${wallet}`,
+    });
+    assert.deepEqual(adoptedState.body.adoptedSuggestionKeys, [
+      "groceries::adopt-me",
+    ]);
+
+    const clearedResponse = await requestJson(
+      recommendationActionsRouteModule.recommendationActionsRouter,
+      {
+        method: "POST",
+        path: "/",
+        body: {
+          wallet,
+          suggestionKey: "groceries::adopt-me",
+          action: "cleared",
+        },
+      }
+    );
+
+    assert.equal(clearedResponse.status, 200);
+    assert.equal(clearedResponse.body.action, "cleared");
+
+    const clearedState = await requestJson(walletStateRouteModule.walletStateRouter, {
+      method: "GET",
+      path: `/?wallet=${wallet}`,
+    });
+    assert.deepEqual(clearedState.body.adoptedSuggestionKeys, []);
   });
 
   it("GET /api/nft-metadata returns 404 for an unknown wallet and metadata for a known one", async () => {

@@ -515,7 +515,7 @@ class SuggestionsService {
     model?: string;
     promptHash?: string;
   }> {
-    const snapshot = emissionsService.getCanonicalSnapshot(request.wallet);
+    const snapshot = await emissionsService.getCanonicalSnapshot(request.wallet);
     const rankedCategories = this.rankCategories(
       snapshot.categoryEmissionTotals,
       request.categories

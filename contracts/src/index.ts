@@ -54,6 +54,8 @@ export {
   SwapSuggestionsRequestSchema,
   SwapSuggestionSchema,
   SwapSuggestionsResponseSchema,
+  RecommendationActionRequestSchema,
+  RecommendationActionResponseSchema,
   TriggerOffsetRequestSchema,
   OffsetDecisionSchema,
   TriggerOffsetResponseSchema,
@@ -68,6 +70,7 @@ export {
   LeaderboardRequestSchema,
   LeaderboardEntrySchema,
   LeaderboardResponseSchema,
+  WalletStateResponseSchema,
   NftAttributeSchema,
   ImpactNftMetadataSchema,
 } from "./schemas.js";
@@ -87,6 +90,8 @@ export type {
   SwapSuggestionsRequest,
   SwapSuggestion,
   SwapSuggestionsResponse,
+  RecommendationActionRequest,
+  RecommendationActionResponse,
   TriggerOffsetRequest,
   OffsetDecision,
   TriggerOffsetResponse,
@@ -101,6 +106,7 @@ export type {
   LeaderboardRequest,
   LeaderboardEntry,
   LeaderboardResponse,
+  WalletStateResponse,
   NftAttribute,
   ImpactNftMetadata,
 } from "./types.js";

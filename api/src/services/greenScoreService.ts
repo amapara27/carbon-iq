@@ -33,7 +33,7 @@ export function computeWeightedScore(
 export async function refreshStoredGreenScore(
   wallet: string
 ): Promise<GreenScoreResponse> {
-  const snapshot = emissionsService.getCanonicalSnapshot(wallet);
+  const snapshot = await emissionsService.getCanonicalSnapshot(wallet);
   const confirmedOffsets = (await prisma.impactRecord.findMany({
     where: {
       walletAddress: wallet,
@@ -57,7 +57,7 @@ export async function refreshStoredGreenScore(
 
   if (snapshot.totalSpendUsd > 0) {
     const intensity = snapshot.totalCo2eGrams / snapshot.totalSpendUsd;
-    transactionEfficiency = clampNumber((100 * (400 - intensity)) / 325, 0, 100);
+    transactionEfficiency = clampNumber((100 * (520 - intensity)) / 420, 0, 100);
 
     let weightedPoints = 0;
     let essentialSpend = 0;

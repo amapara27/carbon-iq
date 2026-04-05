@@ -27,6 +27,8 @@ import {
   SwapSuggestionsRequestSchema,
   SwapSuggestionSchema,
   SwapSuggestionsResponseSchema,
+  RecommendationActionRequestSchema,
+  RecommendationActionResponseSchema,
 
   // Trigger Offset
   TriggerOffsetRequestSchema,
@@ -49,6 +51,7 @@ import {
   LeaderboardRequestSchema,
   LeaderboardEntrySchema,
   LeaderboardResponseSchema,
+  WalletStateResponseSchema,
 
   // NFT
   NftAttributeSchema,
@@ -79,6 +82,8 @@ export type GreenScoreResponse = z.infer<typeof GreenScoreResponseSchema>;
 export type SwapSuggestionsRequest = z.infer<typeof SwapSuggestionsRequestSchema>;
 export type SwapSuggestion = z.infer<typeof SwapSuggestionSchema>;
 export type SwapSuggestionsResponse = z.infer<typeof SwapSuggestionsResponseSchema>;
+export type RecommendationActionRequest = z.infer<typeof RecommendationActionRequestSchema>;
+export type RecommendationActionResponse = z.infer<typeof RecommendationActionResponseSchema>;
 
 // ─── Trigger Offset ─────────────────────────────────────────────────────────
 
@@ -105,6 +110,7 @@ export type StakeResponse = z.infer<typeof StakeResponseSchema>;
 export type LeaderboardRequest = z.infer<typeof LeaderboardRequestSchema>;
 export type LeaderboardEntry = z.infer<typeof LeaderboardEntrySchema>;
 export type LeaderboardResponse = z.infer<typeof LeaderboardResponseSchema>;
+export type WalletStateResponse = z.infer<typeof WalletStateResponseSchema>;
 
 // ─── NFT ────────────────────────────────────────────────────────────────────
 

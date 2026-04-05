@@ -248,6 +248,19 @@ export const SwapSuggestionsResponseSchema = z.object({
   totalPotentialSavingsMonthly: z.number().nonnegative(),
 });
 
+export const RecommendationActionRequestSchema = z.object({
+  wallet: WalletAddressSchema,
+  suggestionKey: z.string().min(1),
+  action: z.enum(["adopted", "cleared"]),
+});
+
+export const RecommendationActionResponseSchema = z.object({
+  wallet: WalletAddressSchema,
+  suggestionKey: z.string(),
+  action: z.enum(["adopted", "cleared"]),
+  actedAt: z.string(),
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  POST /api/trigger-offset
 //  AI Backend → Offset Agent decides credit type + amount
@@ -407,6 +420,17 @@ export const LeaderboardResponseSchema = z.object({
   page: z.number().int().positive(),
   pageSize: z.number().int().positive(),
   totalPages: z.number().int().nonnegative(),
+});
+
+export const WalletStateResponseSchema = z.object({
+  wallet: WalletAddressSchema,
+  hasUploadedTransactions: z.boolean(),
+  latestUploadAt: z.string().optional(),
+  analysis: AnalyzeTransactionsResponseSchema.nullable(),
+  greenScore: GreenScoreResponseSchema.nullable(),
+  stakingInfo: StakingInfoResponseSchema.nullable(),
+  latestRecommendations: SwapSuggestionsResponseSchema.nullable(),
+  adoptedSuggestionKeys: z.array(z.string()),
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

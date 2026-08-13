@@ -1,37 +1,65 @@
 # CarbonIQ
 
-CarbonIQ is a full-stack sustainability project built around a Solana wallet identity. It ingests transaction history (uploaded or demo), estimates CO2e emissions per transaction, computes a Green Score, and uses that score to shape staking outcomes. The platform also exposes an offset flow that records proof-of-impact on Solana devnet through an Anchor program. Wallet state, recommendations, stake snapshots, and leaderboard data are persisted in MongoDB and restored on reload.
+**🏆 1st Place Winner - Innovation Hacks (Sustainability Track)**
 
-## What It Currently Does
+## About
 
-- Wallet-based app with pages for Dashboard, Staking, Swaps, and Leaderboard.
-- Upload or preset-connect transactions through `/api/demo/connect-bank`.
-- Analyze transaction emissions via category rules and optional Climatiq spend-based estimates.
-- Compute/persist Green Score with component breakdown and behavior penalties.
-- Generate swap suggestions (template or OpenAI-backed recommender) and persist adoption actions.
-- Simulate stake outcomes, execute stake flows (Marinade, wallet-signed, or demo transfer fallback), collect yield, and withdraw principal.
-- Trigger and record offset actions, including Solana proof PDA updates and stored impact history.
-- Serve leaderboard rankings and Metaplex-compatible impact NFT metadata.
+CarbonIQ is a full-stack sustainability platform built around a Solana wallet identity. It empowers users to understand, manage, and mitigate the environmental footprint of their real-world activity. 
 
-Note: the offset flow is API-complete, but there is no dedicated offset page in the current web UI.
+By ingesting fiat transaction history (such as credit card statements or bank uploads), CarbonIQ estimates CO2e emissions per purchase and computes a dynamic **Green Score**. This score isn't just for show—it directly shapes staking outcomes and yield opportunities. The platform also features a complete offset flow, allowing users to take climate action and record their verifiable proof-of-impact on the Solana devnet through a custom Anchor program. All wallet states, AI-driven recommendations, stake snapshots, and leaderboard rankings are persistently stored and restored via MongoDB.
+
+## Problem Solved (Sustainability Track)
+
+While many web3 sustainability tools focus solely on blockchain energy consumption, an individual's actual carbon footprint is largely driven by everyday real-world purchases. Currently, eco-conscious users lack an integrated way to bridge their fiat spending habits with web3 climate action and DeFi rewards.
+
+**CarbonIQ solves this by:**
+1. **Bridging Off-Chain to On-Chain:** Translating everyday credit card and bank transactions into understandable CO2e emission metrics using category rules and Climatiq spend-based estimates.
+2. **Incentivizing Green Behavior:** Tying a user's fiat-derived "Green Score" to tangible decentralized finance (DeFi) outcomes, such as Solana staking yields. 
+3. **Providing Verifiable Impact:** Using Solana's speed and low cost to mint immutable proof-of-impact state directly on-chain for offsets, preventing double-counting and greenwashing.
+
+## Use Cases
+
+* **Eco-Conscious Web3 Users:** Individuals who want to track the emissions of their everyday spending, offset their footprint, and earn competitive yields through sustainable staking options (like Marinade).
+* **DeFi Protocols & DAOs:** Communities that want to integrate a real-world "Green Score" into their governance weight, airdrop eligibility, or yield distribution to reward sustainable participants.
+* **Climate Tech Integrators:** Developers looking for a reference architecture on how to bridge off-chain carbon estimation APIs (Climatiq/OpenAI) with on-chain Anchor programs.
+
+---
 
 ## Architecture
 
-```
+CarbonIQ bridges off-chain data processing with on-chain state execution. 
+
+```text
 ┌─────────────┐     ┌─────────────┐     ┌──────────────────┐
 │   /web      │────▶│   /api      │────▶│   /anchor        │
 │ React +     │     │ Express +   │     │ Solana Program   │
 │ Vite        │     │ TypeScript  │     │ (Rust/Anchor)    │
 └─────────────┘     └─────────────┘     └──────────────────┘
+      │                    │                     │
+      ▼                    ▼                     ▼
+ Wallet Auth         MongoDB State       On-Chain Impact PDA
 ```
+
+---
+
+## What It Currently Does
+
+- **Frontend Application:** Wallet-based React app featuring pages for the Dashboard, Staking, Swaps, and a global Leaderboard. *(Note: the offset flow is API-complete, but there is no dedicated offset page in the current web UI).*
+- **Data Ingestion:** Upload credit card statements or preset-connect bank transactions through `/api/demo/connect-bank`.
+- **Emission Analysis:** Analyze fiat transaction emissions via specific category rules and optional Climatiq spend-based estimates.
+- **Green Score Engine:** Compute and persist a Green Score with a detailed component breakdown and behavior penalties based on spending habits.
+- **Smart Recommendations:** Generate eco-friendly swap suggestions using templates or an OpenAI-backed recommender, and track user adoption actions.
+- **DeFi Staking:** Simulate stake outcomes, execute live stake flows (Marinade, wallet-signed, or demo transfer fallback), collect yield, and withdraw principal.
+- **On-Chain Offsets:** Trigger and record offset actions, updating Solana proof PDAs and storing historical impact.
+- **Gamification:** Serve leaderboard rankings and Metaplex-compatible impact NFT metadata.
 
 ## Repo Layout
 
-- `web/` React 19 + Vite frontend (wallet connect, dashboard, staking, swaps, leaderboard).
-- `api/` Express TypeScript backend with route validation from `@carboniq/contracts`.
-- `contracts/` Shared Zod schemas/types/constants used by both web and API.
-- `anchor/` Solana program (`record_impact`, `update_impact`) and Anchor tests.
-- `demo/` Synthetic transaction datasets used by demo upload/preset flows.
+- `web/` — React 19 + Vite frontend (wallet connect, dashboard, staking, swaps, leaderboard).
+- `api/` — Express TypeScript backend with strict route validation utilizing `@carboniq/contracts`.
+- `contracts/` — Shared Zod schemas, types, and constants utilized by both the web and API layers.
+- `anchor/` — Solana program (`record_impact`, `update_impact`) and Anchor tests.
+- `demo/` — Synthetic transaction datasets used by demo upload and preset flows.
 
 ## Local Development
 
